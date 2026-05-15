@@ -1,10 +1,14 @@
-import React from 'react'
-
 const Title = ({ title, description }) => {
   return (
-    <div className='text-center mt-6 text-slate-700'>
-        <h2 className='text-3xl sm:text-4xl font-medium'>{title}</h2>
-        <p className='max-sm max-w-2xl mt-4 text-slate-500'>{description}</p>
+    <div className="text-center my-6">
+      <h2 className="text-3xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+        {title}
+      </h2>
+      {description && (
+        <p className="text-sm mt-2 max-w-lg mx-auto" style={{ color: 'var(--text-tertiary)' }}>
+          {description}
+        </p>
+      )}
     </div>
   )
 }

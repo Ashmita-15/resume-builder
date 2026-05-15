@@ -1,196 +1,219 @@
-import { FilePenLineIcon, LoaderCircleIcon, PencilIcon, PlusIcon, TrashIcon, UploadCloud, UploadCloudIcon, XIcon } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import { dummyResumeData } from '../assets/assets'
-import {useNavigate} from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { FileText, ScanSearch, Target, Sparkles, TrendingUp, Clock, ArrowRight } from 'lucide-react'
 import api from '../configs/api'
-import toast from 'react-hot-toast'
-import pdfToText from 'react-pdftotext'
+import StatsCard from '../components/dashboard/StatsCard'
+import QuickActions from '../components/dashboard/QuickActions'
+import ActivityTimeline from '../components/dashboard/ActivityTimeline'
 
 const Dashboard = () => {
-
-  const {user, token} = useSelector(state => state.auth)
-
-  const colors = ["#9333ea", "#d97706", "#dc2626", "#0284c7", "#16a34a"]
-  const [allResumes, setAllResumes] = useState([])
-  const [showCreateResume, setShowCreateResume] = useState(false)
-  const [showUploadResume, setShowUploadResume] = useState(false)
-  const [title, setTitle] = useState('')
-  const [resume, setResume] = useState(null)
-  const [editResumeId, setEditResumeId] = useState('')
-
-  const [isLoading, setIsLoading] = useState(false)
-
+  const { user, token } = useSelector(state => state.auth)
   const navigate = useNavigate()
+  const [stats, setStats] = useState({ resumes: 0, avgAts: 0, bestMatch: 0, suggestions: 0 })
+  const [recentResumes, setRecentResumes] = useState([])
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const loadAllResumes = async () =>{
+  const loadDashboardData = async () => {
     try {
-      const { data } = await api.get('/api/users/resumes', {headers: { Authorization: token }})
-      setAllResumes(data.resumes)
+      const { data } = await api.get('/api/users/resumes', { headers: { Authorization: token } })
+      const resumes = data.resumes || []
+      setRecentResumes(resumes.slice(-4).reverse())
+      setStats(prev => ({ ...prev, resumes: resumes.length }))
+
+      // Build activities from resumes
+      const acts = resumes.slice(-6).reverse().map(r => ({
+        type: 'edit',
+        title: `Updated "${r.title}"`,
+        time: new Date(r.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      }))
+      setActivities(acts)
+
+      // Try loading dashboard stats
+      try {
+        const statsRes = await api.get('/api/dashboard/stats', { headers: { Authorization: token } })
+        if (statsRes.data) {
+          setStats(prev => ({
+            ...prev,
+            avgAts: statsRes.data.avgAtsScore || 0,
+            bestMatch: statsRes.data.bestMatchScore || 0,
+            suggestions: statsRes.data.suggestionsCount || 0,
+          }))
+        }
+      } catch {
+        // Dashboard stats endpoint may not exist yet
+      }
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message)
+      console.log(error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const createResume = async (event) => {
-   try {
-    event.preventDefault()
-    const { data } = await api.post('/api/resumes/create', {title}, {headers: { Authorization: token }})
-    setAllResumes([...allResumes, data.resume])
-    setTitle('')
-    setShowCreateResume(false)
-    navigate(`/app/builder/${data.resume._id}`)
-   } catch (error) {
-    toast.error(error?.response?.data?.message || error.message)
-   }
-  }
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
-  const uploadResume = async (event) => {
-    event.preventDefault()
-    setIsLoading(true)
-    try {
-      const resumeText = await pdfToText(resume)
-      const { data } = await api.post('/api/ai/upload-resume', {title, resumeText}, {headers: { Authorization: token }})
-      setTitle('')
-      setResume(null)
-      setShowUploadResume(false)
-      navigate(`/app/builder/${data.resumeId}`)
-    } catch (error) {
-      toast.error(error?.response?.data?.message || error.message)
-    }
-    setIsLoading(false)
+  const formatGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 17) return 'Good afternoon'
+    return 'Good evening'
   }
-
-  const editTitle = async (event) => {
-    try {
-      event.preventDefault()
-      const {data} = await api.put(`/api/resumes/update`, {resumeId: editResumeId, resumeData: { title }}, {headers: { Authorization: token }})
-      setAllResumes(allResumes.map(resume => resume._id === editResumeId ? { ...resume, title } : resume))
-      setTitle('')
-      setEditResumeId('')
-      toast.success(data.message)
-    } catch (error) {
-      toast.error(error?.response?.data?.message || error.message)
-    }
-     
-  }
-
-  const deleteResume = async (resumeId) => {
-    try {
-      const confirm = window.confirm('Are you sure you want to delete this resume?')
-     if(confirm){
-      const {data} = await api.delete(`/api/resumes/delete/${resumeId}`, {headers: { Authorization: token }})
-      setAllResumes(allResumes.filter(resume => resume._id !== resumeId))
-      toast.success(data.message)
-     }
-    } catch (error) {
-      toast.error(error?.response?.data?.message || error.message)
-    }
-     
-  }
-
-  useEffect(()=>{
-    loadAllResumes()
-  },[])
 
   return (
-    <div>
-      <div className='max-w-7xl mx-auto px-4 py-8'>
+    <div className="space-y-6">
+      {/* Greeting */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h2
+          className="text-2xl font-bold"
+          style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+        >
+          {formatGreeting()}, {user?.name?.split(' ')[0]} 👋
+        </h2>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+          Here's what's happening with your career tools today.
+        </p>
+      </motion.div>
 
-        <p className='text-2xl font-medium mb-6 bg-gradient-to-r from-slate-600 to-slate-700 bg-clip-text text-transparent sm:hidden'>Welcome, Joe Doe</p>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard icon={FileText} label="Total Resumes" value={stats.resumes} color="var(--accent-primary)" />
+        <StatsCard icon={ScanSearch} label="Avg ATS Score" value={stats.avgAts ? `${stats.avgAts}%` : '—'} trend={stats.avgAts ? 12 : undefined} trendUp={true} color="var(--warning)" />
+        <StatsCard icon={Target} label="Best Match" value={stats.bestMatch ? `${stats.bestMatch}%` : '—'} color="var(--success)" />
+        <StatsCard icon={Sparkles} label="AI Suggestions" value={stats.suggestions || '—'} color="var(--info)" />
+      </div>
 
-        <div className='flex gap-4 '>
-            <button onClick={()=> setShowCreateResume(true)} className='w-full bg-white sm:max-w-36 h-48 flex flex-col items-center justify-center rounded-lg gap-2 text-slate-600 border border-dashed border-slate-300 group hover:border-indigo-500 hover:shadow-lg transition-all duration-300 cursor-pointer'>
-              <PlusIcon className='size-11 transition-all duration-300 p-2.5 bg-gradient-to-br from-indigo-300 to-indigo-500  text-white rounded-full'/>
-              <p className='text-sm group-hover:text-indigo-600 transition-all duration-300'>Create Resume</p>
+      {/* Quick Actions */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+          <TrendingUp size={14} /> Quick Actions
+        </h3>
+        <QuickActions />
+      </div>
+
+      {/* Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent Resumes */}
+        <div className="lg:col-span-2 card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+              <FileText size={14} /> Recent Resumes
+            </h3>
+            <button
+              onClick={() => navigate('/app/resumes')}
+              className="text-xs font-medium flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--accent-light)' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              View all <ArrowRight size={12} />
             </button>
-            <button onClick={()=> setShowUploadResume(true)} className='w-full bg-white sm:max-w-36 h-48 flex flex-col items-center justify-center rounded-lg gap-2 text-slate-600 border border-dashed border-slate-300 group hover:border-purple-500 hover:shadow-lg transition-all duration-300 cursor-pointer'>
-              <UploadCloudIcon className='size-11 transition-all duration-300 p-2.5 bg-gradient-to-br from-purple-300 to-purple-500  text-white rounded-full'/>
-              <p className='text-sm group-hover:text-purple-600 transition-all duration-300'>Upload Existing</p>
-            </button>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-16 rounded-lg animate-shimmer" />
+              ))}
+            </div>
+          ) : recentResumes.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText size={40} style={{ color: 'var(--text-muted)' }} className="mx-auto mb-3" />
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No resumes yet. Create your first one!</p>
+              <button
+                onClick={() => navigate('/app/resumes')}
+                className="btn-primary mt-4 text-sm"
+              >
+                Create Resume
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentResumes.map((resume, index) => (
+                <motion.button
+                  key={resume._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => navigate(`/app/builder/${resume._id}`)}
+                  className="w-full flex items-center gap-4 p-3 rounded-lg transition-all text-left"
+                  style={{ color: 'var(--text-primary)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent-light)' }}
+                  >
+                    <FileText size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{resume.title}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Updated {new Date(resume.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="badge badge-accent text-xs">{resume.template}</span>
+                </motion.button>
+              ))}
+            </div>
+          )}
         </div>
 
-      <hr className='border-slate-300 my-6 sm:w-[305px]' />
+        {/* Activity Timeline */}
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <Clock size={14} /> Recent Activity
+          </h3>
+          <ActivityTimeline activities={activities} />
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 sm:flex flex-wrap gap-4 ">
-        {allResumes.map((resume, index)=>{
-          const baseColor = colors[index % colors.length];
-          return (
-            <button key={index} onClick={()=> navigate(`/app/builder/${resume._id}`)} className='relative w-full sm:max-w-36 h-48 flex flex-col items-center justify-center rounded-lg gap-2 border group hover:shadow-lg transition-all duration-300 cursor-pointer' style={{background: `linear-gradient(135deg, ${baseColor}10, ${baseColor}40)`, borderColor: baseColor + '40'}}>
-
-              <FilePenLineIcon className="size-7 group-hover:scale-105 transition-all " style={{ color: baseColor }}/>
-              <p className='text-sm group-hover:scale-105 transition-all  px-2 text-center' style={{ color: baseColor }}>{resume.title}</p>
-              <p className='absolute bottom-1 text-[11px] text-slate-400 group-hover:text-slate-500 transition-all duration-300 px-2 text-center' style={{ color: baseColor + '90' }}>
-                 Updated on {new Date(resume.updatedAt).toLocaleDateString()}
-              </p>
-              <div onClick={e=> e.stopPropagation()} className='absolute top-1 right-1 group-hover:flex items-center hidden'>
-                <TrashIcon onClick={()=>deleteResume(resume._id)} className="size-7 p-1.5 hover:bg-white/50 rounded text-slate-700 transition-colors"/>
-                <PencilIcon onClick={()=> {setEditResumeId(resume._id); setTitle(resume.title)}} className="size-7 p-1.5 hover:bg-white/50 rounded text-slate-700 transition-colors"/>
-              </div>
+      {/* AI Insights Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="card p-6 relative overflow-hidden"
+        style={{ background: 'var(--gradient-accent)' }}
+      >
+        <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-20" style={{ background: 'var(--accent-lighter)' }} />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={18} color="#fff" />
+            <h3 className="text-white font-semibold text-sm">AI Career Insights</h3>
+          </div>
+          <p className="text-white/80 text-sm max-w-xl">
+            Run an ATS analysis on your resume to get personalized improvement suggestions, or match it against a job description to see how well you fit.
+          </p>
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => navigate('/app/ats-analyzer')}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+            >
+              Run ATS Check
             </button>
-          )
-        })}
-      </div>
-
-        {showCreateResume && (
-          <form onSubmit={createResume} onClick={()=> setShowCreateResume(false)} className='fixed inset-0 bg-black/70 backdrop-blur bg-opacity-50 z-10 flex items-center justify-center'>
-            <div onClick={e => e.stopPropagation()} className='relative bg-slate-50 border shadow-md rounded-lg w-full max-w-sm p-6'>
-              <h2 className='text-xl font-bold mb-4'>Create a Resume</h2>
-              <input onChange={(e)=>setTitle(e.target.value)} value={title} type="text" placeholder='Enter resume title' className='w-full px-4 py-2 mb-4 focus:border-purple-600 ring-purple-600' required/>
-
-              <button className='w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors'>Create Resume</button>
-              <XIcon className='absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors' onClick={()=> {setShowCreateResume(false); setTitle('')}}/>
-            </div>
-          </form>
-        )
-        }
-
-        {showUploadResume && (
-          <form onSubmit={uploadResume} onClick={()=> setShowUploadResume(false)} className='fixed inset-0 bg-black/70 backdrop-blur bg-opacity-50 z-10 flex items-center justify-center'>
-            <div onClick={e => e.stopPropagation()} className='relative bg-slate-50 border shadow-md rounded-lg w-full max-w-sm p-6'>
-              <h2 className='text-xl font-bold mb-4'>Upload Resume</h2>
-              <input onChange={(e)=>setTitle(e.target.value)} value={title} type="text" placeholder='Enter resume title' className='w-full px-4 py-2 mb-4 focus:border-purple-600 ring-purple-600' required/>
-                <div>
-                  <label htmlFor="resume-input" className="block text-sm text-slate-700">
-                    Select resume file
-                    <div className='flex flex-col items-center justify-center gap-2 border group text-slate-400 border-slate-400 border-dashed rounded-md p-4 py-10 my-4 hover:border-purple-500 hover:text-purple-700 cursor-pointer transition-colors'>
-                      {resume ? (
-                        <p className='text-purple-700'>{resume.name}</p>
-                      ) : (
-                        <>
-                          <UploadCloud className='size-14 stroke-1'/>
-                          <p>Upload resume</p>
-                        </>
-                      )}
-                    </div>
-                  </label>
-                  <input type="file" id='resume-input' accept='.pdf' hidden onChange={(e)=> setResume(e.target.files[0])}/>
-                </div>
-              <button disabled={isLoading} className='w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center justify-center gap-2'>
-                {isLoading && <LoaderCircleIcon className='animate-spin size-4 text-white'/>}
-                {isLoading ? 'Uploading...' : 'Upload Resume'}
-                
-                </button>
-              <XIcon className='absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors' onClick={()=> {setShowUploadResume(false); setTitle('')}}/>
-            </div>
-          </form>
-        )
-        }
-
-        {editResumeId && (
-          <form onSubmit={editTitle} onClick={()=> setEditResumeId('')} className='fixed inset-0 bg-black/70 backdrop-blur bg-opacity-50 z-10 flex items-center justify-center'>
-            <div onClick={e => e.stopPropagation()} className='relative bg-slate-50 border shadow-md rounded-lg w-full max-w-sm p-6'>
-              <h2 className='text-xl font-bold mb-4'>Edit Resume Title</h2>
-              <input onChange={(e)=>setTitle(e.target.value)} value={title} type="text" placeholder='Enter resume title' className='w-full px-4 py-2 mb-4 focus:border-purple-600 ring-purple-600' required/>
-
-              <button className='w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors'>Update</button>
-              <XIcon className='absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors' onClick={()=> {setEditResumeId(''); setTitle('')}}/>
-            </div>
-          </form>
-        )
-        }
-      
-      </div>
+            <button
+              onClick={() => navigate('/app/job-match')}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+            >
+              Match Job
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -33,6 +33,9 @@ const ResumeSchema = new mongoose.Schema({
             name: { type: String },
             type: { type: String },
             description: { type: String },
+            github_link: { type: String, default: '' },
+            live_link: { type: String, default: '' },
+            tech_stack: [{ type: String }],
         }
     ],
     education: [
@@ -44,6 +47,45 @@ const ResumeSchema = new mongoose.Schema({
             gpa: { type: String },
         }
     ],
+    certifications: [
+        {
+            name: { type: String },
+            issuer: { type: String },
+            date: { type: String },
+            url: { type: String, default: '' },
+        }
+    ],
+    achievements: [
+        {
+            title: { type: String },
+            description: { type: String },
+            date: { type: String },
+        }
+    ],
+    languages: [
+        {
+            name: { type: String },
+            proficiency: { type: String, default: 'Intermediate' },
+        }
+    ],
+    volunteering: [
+        {
+            organization: { type: String },
+            role: { type: String },
+            start_date: { type: String },
+            end_date: { type: String },
+            description: { type: String },
+        }
+    ],
+    extracurricular: [
+        {
+            activity: { type: String },
+            role: { type: String },
+            description: { type: String },
+        }
+    ],
+    section_order: [{ type: String }],
+    hidden_sections: [{ type: String }],
 }, {timestamps: true, minimize: false})
 
 const Resume = mongoose.model('Resume', ResumeSchema)
