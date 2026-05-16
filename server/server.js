@@ -1,7 +1,6 @@
-```js
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
+import dotenv from "dotenv";
 
 import connectDB from "./configs/db.js";
 
@@ -12,48 +11,37 @@ import atsRouter from "./routes/atsRoutes.js";
 import jobMatchRouter from "./routes/jobMatchRoutes.js";
 import dashboardRouter from "./routes/dashboardRoutes.js";
 
+// Config
+dotenv.config();
+
 const app = express();
 
-// =========================
-// CONNECT DATABASE
-// =========================
-await connectDB();
+// ======================
+// DATABASE CONNECTION
+// ======================
+connectDB();
 
-// =========================
+// ======================
 // MIDDLEWARE
-// =========================
-
-// JSON parser
+// ======================
 app.use(express.json({ limit: "10mb" }));
 
-// CORS Configuration
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://resume-builder-weld-phi.vercel.app"
+  "https://resume-builder-weld-phi.vercel.app",
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin
-      // (mobile apps, postman, server-to-server)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins,
     credentials: true,
   })
 );
 
-// =========================
+// ======================
 // ROUTES
-// =========================
+// ======================
 
-// Health Check
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -61,7 +49,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// API Routes
 app.use("/api/users", userRouter);
 app.use("/api/resumes", resumeRouter);
 app.use("/api/ai", aiRouter);
@@ -69,9 +56,9 @@ app.use("/api/ats", atsRouter);
 app.use("/api/job-match", jobMatchRouter);
 app.use("/api/dashboard", dashboardRouter);
 
-// =========================
-// GLOBAL ERROR HANDLER
-// =========================
+// ======================
+// ERROR HANDLER
+// ======================
 app.use((err, req, res, next) => {
   console.error(err.stack);
 
@@ -82,4 +69,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-```
