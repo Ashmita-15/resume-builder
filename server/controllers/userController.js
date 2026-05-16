@@ -99,7 +99,7 @@ export const loginUser = async (req, res) => {
         }
 
         // Find user
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).select("+password");
 
         if (!user) {
 
@@ -139,11 +139,11 @@ export const loginUser = async (req, res) => {
 
     } catch (error) {
 
-        console.log(error);
-
+        console.log("LOGIN ERROR:", error);
+    
         return res.status(500).json({
             success: false,
-            message: "Something went wrong"
+            message: error.message
         });
     }
 };
