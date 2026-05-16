@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+dotenv.config();
+
 import connectDB from "./configs/db.js";
 
 import userRouter from "./routes/userRoutes.js";
@@ -11,29 +13,24 @@ import atsRouter from "./routes/atsRoutes.js";
 import jobMatchRouter from "./routes/jobMatchRoutes.js";
 import dashboardRouter from "./routes/dashboardRoutes.js";
 
-// Config
-dotenv.config();
-
 const app = express();
 
 // ======================
-// DATABASE CONNECTION
+// DATABASE
 // ======================
 connectDB();
 
 // ======================
 // MIDDLEWARE
 // ======================
-app.use(express.json({ limit: "10mb" }));
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://resume-builder-weld-phi.vercel.app",
-];
+app.use(express.json());
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: [
+      "http://localhost:5173",
+      "https://resume-builder-weld-phi.vercel.app",
+    ],
     credentials: true,
   })
 );
@@ -41,11 +38,10 @@ app.use(
 // ======================
 // ROUTES
 // ======================
-
 app.get("/", (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
-    message: "Server is live...",
+    message: "Backend running successfully",
   });
 });
 
@@ -57,15 +53,10 @@ app.use("/api/job-match", jobMatchRouter);
 app.use("/api/dashboard", dashboardRouter);
 
 // ======================
-// ERROR HANDLER
+// SERVER
 // ======================
-app.use((err, req, res, next) => {
-  console.error(err.stack);
+const PORT = process.env.PORT || 5000;
 
-  res.status(500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-export default app;
